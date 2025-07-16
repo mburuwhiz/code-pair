@@ -1,108 +1,100 @@
-const express = require('express');
-const axios = require('axios');
-const fs = require('fs-extra');
-const path = require('path');
-const Pino = require('pino');
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const {
   default: makeWASocket,
-  useMultiFileAuthState,
-  Browsers
-} = require('@whiskeysockets/baileys');
+  useSingleFileAuthState,
+  fetchLatestBaileysVersion
+} = require("@whiskeysockets/baileys");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-const authDir = path.join(__dirname, 'auth_info');
-fs.ensureDirSync(authDir);
-
-app.use(express.static('public'));
 app.use(express.json());
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
-const MESSAGE = `
-━━━━━━━━━━━━━━━━━━━━━━━
-  *✅  WHIZ-MD LINKED SUCCESSFULLY*
-━━━━━━━━━━━━━━━━━━━━━━━
+const AUTH_FILE = "./auth_info.json";
+const PREFIX = "WHIZMD_";
 
-📌 You can Continue to Deploy now
-
-*📁 GitHub:*
-https://github.com/mburuwhiz/whiz-md
-
-*🔍 Scan QR Code:*
-https://pairwithwhizmd.onrender.com
-
-*💬 Contact Owner:*
-+254 754 783 683
-
-*💡 Support Group:*
-https://chat.whatsapp.com/JLmSbTfqf4I2Kh4SNJcWgM
-
-⚠️ Keep your SESSION_ID private!
-Unauthorized sharing allows others to access your chats.
-
-━━━━━━━━━━━━━━━━━━━━━━━
-🔧 Powered by WHIZ-MD • Built with 💡
-━━━━━━━━━━━━━━━━━━━━━━━
-`;
-
-const pairing = {};
-function genCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-app.get('/', (req, res) => res.render('pair'));
-app.post('/generate', (req, res) => {
-  const { phone } = req.body;
-  if (!phone) return res.status(400).json({ error: 'Missing phone number' });
-
-  const code = genCode();
-  pairing[code] = { phone, used: false };
-  res.json({ code });
-  startPair(code);
+// Serve homepage
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
-async function startPair(code) {
-  const entry = pairing[code];
-  if (!entry) return;
+// Handle pairing request
+app.post("/pair", async (req, res) => {
+  const phone = req.body.phoneNumber;
+  if (!phone || !/^\d{7,15}$/.test(phone)) return res.status(400).send("Invalid phone number");
 
-  const { state, saveCreds } = await useMultiFileAuthState(authDir);
+  const { state, saveCreds } = useSingleFileAuthState(AUTH_FILE);
+  const { version } = await fetchLatestBaileysVersion();
+
   const sock = makeWASocket({
-    logger: Pino({ level: 'silent' }),
-    printQRInTerminal: true,
-    browser: Browsers.macOS('WHIZ-MD'),
-    auth: state
+    version,
+    auth: state,
+    printQRInTerminal: false,
+    browser: ["🔧 𝐖𝐇𝐈𝐙-𝐌𝐃 𝐏𝐑𝐎", "9.0.0", "Android"]
   });
 
-  sock.ev.on('creds.update', saveCreds);
-  sock.ev.on('connection.update', async ({ connection }) => {
-    if (connection === 'open' && !entry.used) {
-      entry.used = true;
+  try {
+    const code = await sock.requestPairingCode(phone);
+    sock.ev.on("creds.update", async () => {
+      await saveCreds();
+      const raw = fs.readFileSync(AUTH_FILE);
+      const sessionId = PREFIX + Buffer.from(raw).toString("base64");
 
-      try {
-        const sessionData = await fs.readFile(path.join(authDir, 'creds.json'));
-        const sessionId = 'WHIZMD_' + Buffer.from(sessionData).toString('base64');
+      res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head><meta charset="UTF-8"><title>WHIZ‑MD Linked</title><style>
+        body { font-family: sans-serif; text-align: center; padding: 2rem; }
+        pre { text-align: left; background:#f1f1f1;padding:1rem; }
+      </style></head>
+      <body>
+        <h1>✅ WHIZ-MD Linked Successfully!</h1>
+        <pre>${sessionId}</pre>
+        <div><a href="/">Pair Another Device</a></div>
+      </body>
+      </html>
+      `);
+      sock.end();
+    });
 
-        await sock.sendMessage(sock.user.id, { text: `\`\`\`\nSESSION-ID ==> ${sessionId}\n\`\`\`` });
-        await sock.sendMessage(sock.user.id, { text: MESSAGE });
-
-        const audioUrl = 'https://s31.aconvert.com/convert/p3r68-cdx67/gmz3g-g051v.mp3';
-        const audioResp = await axios.get(audioUrl, { responseType: 'arraybuffer' });
-
-        await sock.sendMessage(sock.user.id, {
-          audio: Buffer.from(audioResp.data),
-          mimetype: 'audio/mpeg',
-          ptt: false
-        });
-
-        await new Promise(r => setTimeout(r, 2000));
-        sock.end();
-        await fs.emptyDir(authDir);
-      } catch (e) {
-        console.error('❌ Error sending post-pair messages:', e);
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><title>Pairing</title><style>
+      body { text-align: center; font-family: sans-serif; padding: 2rem; }
+      #code { font-size: 2rem; margin: 1rem 0; }
+      button { padding: 0.5rem 1rem; cursor: pointer; }
+      #toast {
+        visibility: hidden;
+        margin-top: 1rem;
+        background: #3CB371;
+        color: white;
+        padding: 0.5rem 1rem;
       }
-    }
-  });
-}
+    </style></head>
+    <body>
+      <h1>Enter this 8‑char code in WhatsApp</h1>
+      <div id="code">${code}</div>
+      <button id="copy">Copy Code</button>
+      <div id="toast">Copied!</div>
+      <script>
+        document.getElementById("copy").onclick = () => {
+          navigator.clipboard.writeText("${code}");
+          const t = document.getElementById("toast");
+          t.style.visibility = "visible";
+          setTimeout(() => t.style.visibility = "hidden", 3000);
+        };
+      </script>
+    </body>
+    </html>
+    `);
 
-app.listen(PORT, () => console.log(`✅ WHIZ Pairing Service running at http://localhost:${PORT}`));
+  } catch (err) {
+    console.error("Pairing failed", err);
+    res.status(500).send("Error generating pairing code");
+  }
+});
+
+app.listen(process.env.PORT || 3000, () => console.log("WHIZ‑MD Pair app at http://localhost:3000"));
