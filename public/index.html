@@ -1,19 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><title>WHIZ‑MD Pairing</title><meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-    body { font-family: sans-serif; text-align: center; padding: 3rem; }
-    input { width: 200px; padding: 0.5rem; }
-    button { padding: 0.6rem 1.2rem; margin-top: 1rem; cursor: pointer; }
-  </style>
+  <meta charset="UTF-8">
+  <title>WHIZ-MD Pairing</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>🤖 WHIZ‑MD Pairing</h1>
-  <form action="/pair" method="post">
-    <input name="phoneNumber" placeholder="e.g. 254712345678" pattern="\\d{7,15}" required>
-    <br>
-    <button type="submit">Start Pairing</button>
-  </form>
+  <div class="container">
+    <h1>🤖 WHIZ-MD Pairing Portal</h1>
+    <form action="/pair" method="POST">
+      <label for="phoneNumber">Phone Number (with country code):</label>
+      <input type="text" id="phoneNumber" name="phoneNumber" placeholder="2547XXXXXXX" required>
+      <button type="submit">Get Pairing Code</button>
+    </form>
+
+    <!-- Pairing Code Display Section -->
+    <div id="pairingDisplay" style="margin-top:20px; display:none;">
+      <p><strong>🔑 Your Pairing Code:</strong></p>
+      <pre id="code">ABCDEFGH</pre>
+      <button id="copy">Copy Code</button>
+      <div id="toast" style="visibility:hidden; color:green;">✅ Copied!</div>
+    </div>
+  </div>
+
+  <!-- Load Script for copy + toast -->
+  <script src="/script.js"></script>
 </body>
 </html>
