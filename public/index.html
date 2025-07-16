@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>WHIZ‑MD Pairing</title><meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 3rem; }
+    input { width: 200px; padding: 0.5rem; }
+    button { padding: 0.6rem 1.2rem; margin-top: 1rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>🤖 WHIZ‑MD Pairing</h1>
+  <form action="/pair" method="post">
+    <input name="phoneNumber" placeholder="e.g. 254712345678" pattern="\\d{7,15}" required>
+    <br>
+    <button type="submit">Start Pairing</button>
+  </form>
+</body>
+</html>
