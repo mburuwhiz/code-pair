@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WHIZ Pairing Code</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="overlay"><div class="container">
+    <h1 class="title">🔐 Generate Your Pairing Code</h1>
+    <form id="form"><input id="phone" type="tel" placeholder="+254712345678" required/>
+      <button type="submit">Generate Code</button>
+    </form>
+
+    <div id="result" class="hidden">
+      <div id="code" class="code-display"></div>
+      <p class="info">Click to copy. Visible always.</p>
+    </div>
+  </div></div>
+
+  <script>
+    document.getElementById('form').onsubmit = async e => {
+      e.preventDefault();
+      const phone = document.getElementById('phone').value.trim();
+      const res = await fetch('/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ phone }) });
+      if (res.ok) {
+        const { code } = await res.json();
+        const el = document.getElementById('code');
+        el.textContent = code;
+        el.onclick = () => {
+          navigator.clipboard.writeText(code);
+          el.textContent = '✅ ' + code + ' copied';
+          setTimeout(() => el.textContent = code, 1500);
+        };
+        document.getElementById('result').classList.remove('hidden');
+      } else alert('Error generating code');
+    };
+  </script>
+</body>
+</html>
